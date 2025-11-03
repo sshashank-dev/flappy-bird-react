@@ -1,0 +1,15 @@
+@keyframes pipeShine {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.pipe {
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.25), transparent 60%);
+    background-size: 200% 100%;
+    animation: pipeShine 6s linear infinite;
+}
