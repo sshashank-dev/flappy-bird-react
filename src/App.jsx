@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect, useRef } from "react";
+import Bird from "./Bird";
+import Pipe from "./Pipe";
+import Score from "./Score";
+import GameOver from "./GameOver";
+import StartMenu from "./StartMenu";
+import MuteButton from "./MuteButton";
 
 const GRAVITY = 3;
 const JUMP_HEIGHT = 50;
-const PIPE_WIDTH = 100;
-const PIPE_GAP = 180;
-const PIPE_SPEED = 3;
-const BIRD_SIZE = 50;
-const BIRD_X = 500;
 const ROTATION_SPEED = 3;
 const MAX_ROTATION = 25;
 const JUMP_ROTATION = -25;
@@ -21,63 +21,38 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false);
   const [started, setStarted] = useState(false);
   const [newRecord, setNewRecord] = useState(false);
-  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [muted, setMuted] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
-
-  // --- Sound refs ---
-  const flapSound = useRef("/flap,mp3");
+  // Sound refs
+  const flapSound = useRef(null);
   const scoreSound = useRef(null);
-  const hitSound = useRef("/hit.mp3");
-  const bgMusic = useRef("/bgmusic.mp3");
+  const hitSound = useRef(null);
 
   useEffect(() => {
     flapSound.current = new Audio("/flap.mp3");
     scoreSound.current = new Audio("/point.mp3");
     hitSound.current = new Audio("/hit.mp3");
-    bgMusic.current = new Audio("/bgmusic.mp3");
 
-    flapSound.current.volume = 0.9;
+    flapSound.current.volume = 0.3;
     scoreSound.current.volume = 0.4;
-    hitSound.current.volume = 0.9;
-    bgMusic.current.volume = 0.25;
-
-    bgMusic.current.loop = true;
+    hitSound.current.volume = 0.5;
   }, []);
 
-
-
-  useEffect(() => {
-    const allSounds = [flapSound, scoreSound, hitSound, bgMusic];
-    allSounds.forEach(ref => {
-      if (ref.current) {
-        ref.current.muted = muted;
-      }
-    });
-  }, [muted]);
-
-
-
-  // --- Background music control ---
-  useEffect(() => {
-    if (!bgMusic.current) return;
-
-    if (started && !gameOver) {
-      bgMusic.current.play().catch(() => { }); // play when game is active
-    } else {
-      bgMusic.current.pause(); // pause when not playing
-      bgMusic.current.currentTime = 0; // reset to start
-    }
-  }, [started, gameOver]);
-
-  // --- Window resize ---
+  // Window resize
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // --- Gravity ---
+  // Responsive sizes
+  const BIRD_SIZE = Math.min(50, dimensions.width * 0.1);
+  const BIRD_X = dimensions.width * 0.25;
+  const PIPE_WIDTH = Math.min(100, dimensions.width * 0.1);
+  const PIPE_GAP = Math.min(180, dimensions.height * 0.25);
+
+  // Gravity
   useEffect(() => {
     if (!started || gameOver) return;
     const interval = setInterval(() => {
@@ -85,14 +60,14 @@ export default function App() {
       setRotation(prev => Math.min(prev + ROTATION_SPEED, MAX_ROTATION));
     }, 30);
     return () => clearInterval(interval);
-  }, [started, gameOver, dimensions.height]);
+  }, [started, gameOver, dimensions.height, BIRD_SIZE]);
 
-  // --- Pipes movement ---
+  // Pipes movement
   useEffect(() => {
     if (!started || gameOver) return;
     const interval = setInterval(() => {
       setPipes(prev => {
-        let newPipes = prev.map(pipe => ({ ...pipe, x: pipe.x - PIPE_SPEED }));
+        let newPipes = prev.map(pipe => ({ ...pipe, x: pipe.x - 3 }));
         const lastPipe = newPipes[newPipes.length - 1];
         if (lastPipe && lastPipe.x < dimensions.width - 500) {
           newPipes.push({
@@ -105,14 +80,14 @@ export default function App() {
       });
     }, 30);
     return () => clearInterval(interval);
-  }, [started, gameOver, dimensions.width, dimensions.height]);
+  }, [started, gameOver, dimensions.width, dimensions.height, PIPE_WIDTH, PIPE_GAP]);
 
-  // --- Score update ---
+  // Score update
   useEffect(() => {
     if (!started || gameOver) return;
     pipes.forEach(pipe => {
       if (pipe.x + PIPE_WIDTH < BIRD_X && !pipe.passed) {
-        if (scoreSound.current) {
+        if (!muted && scoreSound.current) {
           scoreSound.current.currentTime = 0;
           scoreSound.current.play();
         }
@@ -120,12 +95,9 @@ export default function App() {
         pipe.passed = true;
       }
     });
-  }, [pipes, started, gameOver]);
+  }, [pipes, started, gameOver, muted, BIRD_X, PIPE_WIDTH]);
 
-
-
-
-  // --- Collision detection ---
+  // Collision detection
   useEffect(() => {
     if (!started || gameOver) return;
     pipes.forEach(pipe => {
@@ -138,10 +110,10 @@ export default function App() {
       }
     });
     if (birdY >= dimensions.height - BIRD_SIZE) handleGameOver();
-  }, [birdY, pipes, dimensions.height, started, gameOver]);
+  }, [birdY, pipes, dimensions.height, started, gameOver, BIRD_X, BIRD_SIZE, PIPE_WIDTH, PIPE_GAP]);
 
   const handleGameOver = () => {
-    if (hitSound.current) {
+    if (!muted && hitSound.current) {
       hitSound.current.currentTime = 0;
       hitSound.current.play();
     }
@@ -155,11 +127,11 @@ export default function App() {
     }
   };
 
-  // --- Jump / restart ---
+  // Jump / restart
   const handleJump = () => {
     if (!started) return;
     if (!gameOver) {
-      if (flapSound.current) {
+      if (!muted && flapSound.current) {
         flapSound.current.currentTime = 0;
         flapSound.current.play();
       }
@@ -180,7 +152,7 @@ export default function App() {
     setNewRecord(false);
   };
 
-  // --- Keyboard controls ---
+  // Keyboard controls
   useEffect(() => {
     const handler = e => {
       if (e.code === "Space") {
@@ -196,22 +168,8 @@ export default function App() {
     <div
       className="relative w-screen h-screen flex justify-center items-center overflow-hidden"
       onClick={() => (started ? handleJump() : setStarted(true))}
+      onTouchStart={() => (started ? handleJump() : setStarted(true))}
     >
-      {/* 🔊 Mute Button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setMuted(prev => !prev);
-        }}
-        className="absolute top-5 left-40 z-50 backdrop-blur-md bg-white/10 border border-white/20 text-white p-3 rounded-full hover:bg-white/20 hover:scale-110 transition-all shadow-lg"
-        title={muted ? 'Unmute' : 'Mute'}
-      >
-        <span className="text-2xl">{muted ? '🔇' : '🔊'}</span>
-      </button>
-
-
-
-
       {/* Background */}
       <div
         className="absolute inset-0 bg-center bg-cover"
@@ -224,103 +182,33 @@ export default function App() {
       />
 
       {/* Bird */}
-      {started && (
-        <img
-          src="/bird.jpg"
-          alt="bird"
-          className="absolute"
-          style={{
-            width: BIRD_SIZE,
-            height: BIRD_SIZE,
-            top: birdY,
-            left: BIRD_X,
-            transform: `rotate(${rotation}deg)`,
-            transition: "top 0.03s, transform 0.1s",
-          }}
-        />
-      )}
+      {started && <Bird y={birdY} rotation={rotation} BIRD_SIZE={BIRD_SIZE} BIRD_X={BIRD_X} />}
 
       {/* Pipes */}
       {started &&
         pipes.map((pipe, idx) => (
-          <React.Fragment key={idx}>
-            {/* Top Pipe */}
-            <div
-              className="absolute"
-              style={{
-                left: pipe.x,
-                top: 0,
-                width: PIPE_WIDTH,
-                height: pipe.height,
-                background: "linear-gradient(to bottom, #7ED957, #2E7D32)",
-                borderLeft: "3px solid #1B5E20",
-                borderRight: "3px solid #1B5E20",
-              }}
-            />
-            {/* Bottom Pipe */}
-            <div
-              className="absolute"
-              style={{
-                left: pipe.x,
-                top: pipe.height + PIPE_GAP,
-                width: PIPE_WIDTH,
-                height: dimensions.height - pipe.height - PIPE_GAP,
-                background: "linear-gradient(to bottom, #7ED957, #2E7D32)",
-                borderLeft: "3px solid #1B5E20",
-                borderRight: "3px solid #1B5E20",
-              }}
-            />
-
-
-
-          </React.Fragment>
+          <Pipe
+            key={idx}
+            pipe={pipe}
+            dimensions={dimensions}
+            PIPE_WIDTH={PIPE_WIDTH}
+            PIPE_GAP={PIPE_GAP}
+          />
         ))}
 
-
-
-
       {/* Score */}
-      {started && !gameOver && (
-        <div className="absolute top-8 left-4 text-white font-bold text-3xl drop-shadow-[0_0_5px_#000]">
-          Score: {score}
-        </div>
-      )}
-
-
-
+      {started && !gameOver && <Score score={score} />}
 
       {/* Game Over */}
       {gameOver && (
-        <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/70 text-white text-center">
-          <h1 className="text-5xl font-bold text-red-500 mb-4">GAME OVER</h1>
-          <p className="text-2xl mb-2">Score: {score}</p>
-          <p className="text-2xl mb-4">
-            High Score: {highScore} {newRecord && "✨ New Record!"}
-          </p>
-          <p className="mt-4 text-lg opacity-80">Click or Press Space to Restart</p>
-        </div>
+        <GameOver score={score} highScore={highScore} newRecord={newRecord} onRestart={restartGame} />
       )}
 
       {/* Start Menu */}
-      {!started && (
-        <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/60 text-white">
-          <h1 className="text-6xl font-extrabold text-yellow-100 mb-1">FLAPPY bird</h1>
-          <img src="/bird.jpg" alt="bird" className="w-[70px] h-[70px] mb-4" />
-          <button
-            onClick={() => setStarted(true)}
-            className="px-8 py-4 text-2xl font-bold bg-red-600 hover:bg-red-700 rounded-2xl mb-4"
-          >
-            START GAME
-          </button>
-          <p className="text-2xl">
-            High Score: {highScore} {newRecord && "✨ New Record!"}
-          </p>
-        </div>
-      )}
+      {!started && <StartMenu highScore={highScore} onStart={() => setStarted(true)} />}
+
+      {/* Mute Button */}
+      <MuteButton muted={muted} setMuted={setMuted} />
     </div>
   );
 }
-
-
-
-
